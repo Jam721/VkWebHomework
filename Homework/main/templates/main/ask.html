@@ -2,47 +2,61 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <!-- Main Form -->
-        <div class="col-md-8">
-            <h1 class="mb-4">New Question</h1>
-
-            <form method="post">
-                {% csrf_token %}
-
-                <!-- Title Field -->
-                <div class="mb-3">
-                    <label for="id_title" class="form-label">Title</label>
-                    {{ form.title }}
-                    {% for error in form.title.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                    {% endfor %}
-                </div>
-
-                <!-- Text Field -->
-                <div class="mb-3">
-                    <label for="id_text" class="form-label">Text</label>
-                    {{ form.text }}  <!-- Здесь привязываем поле формы text -->
-                    {% for error in form.text.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                    {% endfor %}
-                </div>
-
-                <!-- Tags Field -->
-                <div class="mb-4">
-                    <label for="id_tags" class="form-label">Tags</label>
-                    {{ form.tags }}  <!-- Здесь привязываем поле формы tags -->
-                    <div class="form-text">Separate tags with commas</div>
-                    {% for error in form.tags.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                    {% endfor %}
-                </div>
-
-                <!-- Submit Button -->
-                <button type="submit" class="btn btn-success">ASK!</button>
-            </form>
-        </div>
+<div class="col-md-9">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">New Question</h1>
+        <a href="{% url 'index' %}" class="btn btn-outline-secondary">Back to Questions</a>
     </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Title Field -->
+        <div class="mb-4">
+            <label for="id_title" class="form-label fw-bold">Title</label>
+            <input type="text"
+                   class="form-control {% if form.title.errors %}is-invalid{% endif %}"
+                   id="id_title"
+                   name="title"
+                   value="{{ form.title.value|default:'' }}"
+                   placeholder="Enter question title">
+            {% for error in form.title.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Text Field -->
+        <div class="mb-4">
+            <label for="id_text" class="form-label fw-bold">Details</label>
+            <textarea class="form-control {% if form.text.errors %}is-invalid{% endif %}"
+                      id="id_text"
+                      name="text"
+                      rows="6"
+                      placeholder="Describe your question in details">{{ form.text.value|default:'' }}</textarea>
+            {% for error in form.text.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Tags Field -->
+        <div class="mb-4">
+            <label for="id_tags" class="form-label fw-bold">Tags</label>
+            <input type="text"
+                   class="form-control {% if form.tags.errors %}is-invalid{% endif %}"
+                   id="id_tags"
+                   name="tags"
+                   value="{{ form.tags.value|default:'' }}"
+                   placeholder="Enter tags separated by commas">
+            <div class="form-text">Example: django, python, web-development</div>
+            {% for error in form.tags.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-success btn-lg w-100 mt-3">
+            Ask Question
+        </button>
+    </form>
 </div>
 {% endblock %}

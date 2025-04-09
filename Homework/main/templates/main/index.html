@@ -5,9 +5,9 @@
 <div class="col-md-9">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="mb-0">New Questions</h1>
-        <a href="#" class="btn btn-outline-primary">Hot Questions</a>
+        <!--<a href="#" class="btn btn-outline-primary">Hot Questions</a>-->
     </div>
-    
+
     {% for question in questions %}
     <div class="card mb-3">
         <div class="card-body">
@@ -19,12 +19,13 @@
                              class="rounded"
                              style="width: 64px; height: 64px; object-fit: cover">
                     {% else %}
-                        <!-- Показать изображение по умолчанию, если аватара нет -->
-                        <img src="{% static 'default_avatar.png' %}"
+                        <img src="{% static 'img/avatar.jpg' %}"
                              alt="default avatar"
                              class="rounded"
                              style="width: 64px; height: 64px; object-fit: cover">
                     {% endif %}
+
+
                 </div>
 
                 <div class="col">
@@ -39,7 +40,7 @@
                         <div class="d-flex align-items-center">
                             <a href="{% url 'answer' question_id=question.id %}" class="text-success me-2">{{ count_ans }} answers</a>
                             <div class="tags m-lg-1">
-                            tags:
+                                tags:
                                 {% for tag in question.tags.all %}
                                     <span class="badge bg-secondary me-1">{{ tag }}</span>
                                 {% endfor %}
@@ -55,7 +56,7 @@
     </div>
     {% endfor %}
 
-    <nav aria-label="Page navigation" class="mt-4">
+    <!--<nav aria-label="Page navigation" class="mt-4">
         <ul class="pagination">
             <li class="page-item"><a class="page-link" href="#">1</a></li>
             <li class="page-item"><a class="page-link" href="#">2</a></li>
@@ -63,6 +64,6 @@
             <li class="page-item disabled"><span class="page-link">...</span></li>
             <li class="page-item"><a class="page-link" href="#">53</a></li>
         </ul>
-    </nav>
+    </nav>-->
 </div>
 {% endblock %}

@@ -3,10 +3,10 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from .models import Question, Tag, User, Answer
 from .forms import AskForm, AnswerForm
-from django.shortcuts import get_object_or_404
 from .forms import LoginForm, SignUpForm
 import logging
 from django.core.paginator import Paginator
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ data = {
                 {'title': 'Python'},
                 {'title': 'Django'}
             ],
-            'created_at': '2 часа назад'
+            'created_at': '2023-10-01 12:30'  # Здесь указываем реальную дату и время
         }
     ],
     'answers': [
@@ -34,7 +34,7 @@ data = {
                 'avatar': 'path/to/expert_avatar.jpg'
             },
             'text': 'Для начала установите Django с помощью pip.',
-            'created_at': '1 час назад'
+            'created_at': '2023-10-01 13:00'  # Реальная дата и время
         },
         {
             'author': {
@@ -42,13 +42,10 @@ data = {
                 'avatar': 'path/to/dev_avatar.jpg'
             },
             'text': 'Помните, что вам нужно создать проект с помощью команды django-admin startproject.',
-            'created_at': '30 минут назад'
+            'created_at': '2023-10-01 13:30'  # Реальная дата и время
         }
     ]
 }
-
-
-
 
 def index(request):
     popular_tags = Tag.objects.popular_tags()
@@ -136,25 +133,6 @@ def login_view(request):
                       'best_members': best_members,
                   })
 
-@login_required
-def settings(request):
-    popular_tags = Tag.objects.popular_tags()
-    best_members = User.objects.best_members()
-    if request.method == 'POST':
-        user = request.user
-        user.nickname = request.POST.get('nickname', user.nickname)
-        user.email = request.POST.get('email', user.email)
-
-        if 'avatar' in request.FILES:
-            user.avatar = request.FILES['avatar']
-
-        user.save()
-        return redirect('settings')
-
-    return render(request, 'main/settings.html', {
-        'popular_tags': popular_tags,
-        'best_members': best_members,
-    })
 
 def signup(request):
     popular_tags = Tag.objects.popular_tags()
