@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Main Form -->
+        <div class="col-md-8">
+            <h1 class="mb-4">New Question</h1>
+            
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- Title Field -->
+                <div class="mb-3">
+                    <label for="id_title" class="form-label">Title</label>
+                    {{ form.title }}  <!-- Здесь привязываем поле формы title -->
+                    {% for error in form.title.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Text Field -->
+                <div class="mb-3">
+                    <label for="id_text" class="form-label">Text</label>
+                    {{ form.text }}  <!-- Здесь привязываем поле формы text -->
+                    {% for error in form.text.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Tags Field -->
+                <div class="mb-4">
+                    <label for="id_tags" class="form-label">Tags</label>
+                    {{ form.tags }}  <!-- Здесь привязываем поле формы tags -->
+                    <div class="form-text">Separate tags with commas</div>
+                    {% for error in form.tags.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-success">ASK!</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

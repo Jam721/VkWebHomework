@@ -1,0 +1,94 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AskPupkin</title>
+    <link rel="stylesheet" href="{% static 'css/bootstrap.css' %}">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+        <a class="navbar-brand" href="{% url 'index' %}" style="font-size: 40px">AskPupkin</a>
+        <form class="d-flex ms-auto" role="search">
+            <input class="form-control me-2" type="search" placeholder="Search">
+            <a class="btn btn-success" href="{% url 'ask' %}">ASK!</a>
+        </form>
+        <div class="ms-3 d-flex align-items-center">
+        {% if user.is_authenticated %}
+            <!-- Если пользователь аутентифицирован, показываем его аватар и информацию -->
+            {% if user.avatar %}
+                <img src="{{ user.avatar.url }}" 
+                     alt="avatar" 
+                     class="rounded-circle" 
+                     style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
+            {% else %}
+                <!-- Если аватар отсутствует, показываем изображение по умолчанию -->
+                <img src="{% static 'img/default-avatar.jpg' %}" 
+                     alt="default avatar" 
+                     class="rounded-circle" 
+                     style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
+            {% endif %}
+            <div>
+                <a href="#" class="text-decoration-none text-dark">{{ user.nickname }}</a><br>
+                <a href="{% url 'settings' %}" class="text-decoration-none">Settings</a><br>
+                <a href="{% url 'logout' %}" class="text-decoration-none">Log out</a>
+            </div>
+        {% else %}
+            <!-- Если пользователь не аутентифицирован, показываем кнопки для входа или регистрации -->
+            <a href="{% url 'login' %}" class="btn btn-outline-primary">Log in</a>
+            <a href="{% url 'signup' %}" class="btn btn-outline-success ms-2">Sign up</a>
+        {% endif %}
+</div>
+
+</div>
+
+
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8 col-xl-9">
+            {% block content %}{% endblock %}
+        </div>
+
+        <!-- Fixed Sidebar -->
+        <div class="col-lg-4 col-xl-3">
+            <div class="sticky-top" style="top: 100px;">
+                <!-- Popular Tags -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Popular Tags</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for tag in popular_tags %}
+                            <a href="{% url 'tag' tag.title %}" class="badge bg-primary">{{ tag }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Best Members -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Best Members</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            {% for member in best_members %}
+                            <li class="mb-2">{{ member }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/bootstrap.bundle.js' %}"></script>
+</body>
+</html>

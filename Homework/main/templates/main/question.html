@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="col-md-9">
+    <!-- Question Section -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-auto pe-0">
+                    <img src="{% if question.author.avatar %}{{ question.author.avatar.url }}{% else %}{% static 'img/avatar.jpg' %}{% endif %}"
+                         alt="avatar"
+                         class="rounded"
+                         style="width: 64px; height: 64px; object-fit: cover">
+                </div>
+
+                <div class="col">
+                    <h1 class="card-title mb-3">{{ question.title }}</h1>
+                    <p class="card-text">{{ question.text }}</p>
+
+                    <div class="d-flex justify-content-between align-items-end mt-4">
+                        <div class="tags">
+                            {% for tag in question.tags.all %}
+                            <span class="badge bg-secondary me-1">{{ tag.title }}</span>
+                            {% endfor %}
+                        </div>
+                        <small class="text-muted">
+                            Asked by: {{ question.author.username }} • {{ question.created_at|timesince }} ago
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Answers Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">{{ answers.count }} Answers</h5>
+        </div>
+
+        <div class="card-body">
+            {% for answer in answers %}
+                <div class="d-flex mb-4">
+                    <div class="flex-shrink-0 me-3">
+                        <img src="{% if answer.author.avatar %}{{ answer.author.avatar.url }}{% else %}{% static 'img/avatar.jpg' %}{% endif %}"
+                             class="rounded"
+                             width="48"
+                             height="48"
+                             alt="{{ answer.author.username }}">
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-2">
+                            <h6 class="me-2 mb-0">{{ answer.author.username }}</h6>
+                            {% if answer.is_correct %}
+                                <span class="badge bg-success">✓ Correct</span>
+                            {% endif %}
+                        </div>
+                        <p class="mb-0">{{ answer.text }}</p>
+                        <small class="text-muted">{{ answer.created_at|timesince }} ago</small>
+                    </div>
+                </div>
+            {% endfor %}
+
+        </div>
+    </div>
+
+    <!-- Answer Form -->
+    {% if user.is_authenticated %}
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title mb-3">Your Answer</h5>
+            <form method="post" action="{% url 'answer' question.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <textarea class="form-control"
+                              name="text"
+                              rows="5"
+                              placeholder="Enter your answer here"
+                              required></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Answer</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        Please <a href="{% url 'login' %}">login</a> to post an answer.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
