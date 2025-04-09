@@ -10,43 +10,6 @@ from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
-data = {
-    'questions': [
-        {
-            'id': 1,
-            'title': 'Как создать веб-приложение на Django?',
-            'text': 'Я хочу узнать, как создать простое веб-приложение на Django. С чего начать?',
-            'author': {
-                'username': 'user123',
-                'avatar': 'path/to/avatar.jpg'
-            },
-            'tags': [
-                {'title': 'Python'},
-                {'title': 'Django'}
-            ],
-            'created_at': '2023-10-01 12:30'  # Здесь указываем реальную дату и время
-        }
-    ],
-    'answers': [
-        {
-            'author': {
-                'username': 'expert456',
-                'avatar': 'path/to/expert_avatar.jpg'
-            },
-            'text': 'Для начала установите Django с помощью pip.',
-            'created_at': '2023-10-01 13:00'  # Реальная дата и время
-        },
-        {
-            'author': {
-                'username': 'dev789',
-                'avatar': 'path/to/dev_avatar.jpg'
-            },
-            'text': 'Помните, что вам нужно создать проект с помощью команды django-admin startproject.',
-            'created_at': '2023-10-01 13:30'  # Реальная дата и время
-        }
-    ]
-}
-
 def index(request):
     popular_tags = Tag.objects.popular_tags()
     best_members = User.objects.best_members()
@@ -63,14 +26,14 @@ def question(request, question_id):
     best_members = User.objects.best_members()
     question = get_object_or_404(Question, pk=question_id)
     answers = Answer.objects.filter(question=question)
-    return render(request, 'main/question.html',
-                  {
-                      'question': question,
-                      'answers': answers,
-                      'popular_tags': popular_tags,
-                      'best_members': best_members,
-                      'count_ans': len(answers)
-                  })
+    context = {
+        'question': question,
+        'answers': answers,
+        'popular_tags': popular_tags,
+        'best_members': best_members,
+        'count_ans': len(answers)
+    }
+    return render(request, 'main/question.html', context)
 
 @login_required
 def ask(request):
@@ -98,12 +61,13 @@ def ask(request):
     else:
         form = AskForm()
 
-    return render(request, 'main/ask.html',
-                  {
-                      'form': form,
-                      'popular_tags': popular_tags,
-                      'best_members': best_members,
-                  })
+    context = {
+        'form': form,
+        'popular_tags': popular_tags,
+        'best_members': best_members,
+    }
+
+    return render(request, 'main/ask.html', context)
 
 def login_view(request):
     popular_tags = Tag.objects.popular_tags()
@@ -126,12 +90,13 @@ def login_view(request):
                 })
     else:
         form = LoginForm()
-    return render(request, 'main/login.html',
-                  {
-                      'form': form,
-                      'popular_tags': popular_tags,
-                      'best_members': best_members,
-                  })
+
+    context = {
+        'form': form,
+        'popular_tags': popular_tags,
+        'best_members': best_members,
+    }
+    return render(request, 'main/login.html', context)
 
 
 def signup(request):
@@ -151,12 +116,13 @@ def signup(request):
             })
     else:
         form = SignUpForm()
-    return render(request, 'main/signup.html',
-                  {
-                      'form': form,
-                      'popular_tags': popular_tags,
-                      'best_members': best_members,
-                  })
+
+    context = {
+        'form': form,
+        'popular_tags': popular_tags,
+        'best_members': best_members,
+    }
+    return render(request, 'main/signup.html', context)
 
 def logout_view(request):
     logout(request)
@@ -173,12 +139,14 @@ def tag(request, tag_name):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    return render(request, 'main/tag.html', {
+    context = {
         'tag': tag,
         'questions': page_obj,
         'popular_tags': popular_tags,
         'best_members': best_members,
-    })
+    }
+
+    return render(request, 'main/tag.html', context)
 
 @login_required
 def answer(request, question_id):
@@ -212,8 +180,10 @@ def settings(request):
         user.save()
         return redirect('settings')
 
-    return render(request, 'main/settings.html', {
+    context = {
         'popular_tags': popular_tags,
         'best_members': best_members,
         'user': user
-    })
+    }
+
+    return render(request, 'main/settings.html', context)
