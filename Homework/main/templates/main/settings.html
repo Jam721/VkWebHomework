@@ -4,7 +4,7 @@
 {% block content %}
 <div class="col-md-9">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="mb-0">Settings: Dr. Pepper</h1>
+        <h1 class="mb-0">Settings: {{ user.nickname }}</h1>
         <a href="{% url 'ask' %}" class="btn btn-success">ASK!</a>
     </div>
 
@@ -16,7 +16,7 @@
             <label class="form-label">Login</label>
             <input type="text" 
                    class="form-control" 
-                   value="dr_pepper"
+                   value="{{ user.username }}"
                    disabled>
         </div>
 
@@ -25,7 +25,8 @@
             <label class="form-label">Email</label>
             <input type="email" 
                    class="form-control" 
-                   value="drpepper@mail.ru">
+                   name="email"
+                   value="{{ user.email }}">
         </div>
 
         <!-- Nickname Field -->
@@ -33,7 +34,8 @@
             <label class="form-label">NickName</label>
             <input type="text" 
                    class="form-control" 
-                   value="Dr. Pepper">
+                   name="nickname"
+                   value="{{ user.nickname }}">
         </div>
 
         <!-- Avatar Upload -->
@@ -42,12 +44,13 @@
             <div class="input-group">
                 <input type="text" 
                        class="form-control" 
-                       value="c:\avataring" 
+                       value="{% if user.avatar %}{{ user.avatar.name }}{% else %}No avatar selected{% endif %}" 
                        disabled>
                 <input type="file" 
                        class="form-control" 
                        id="avatarInput"
                        name="avatar"
+                       accept="image/*"
                        style="display: none;">
                 <button class="btn btn-outline-secondary" 
                         type="button"
@@ -55,6 +58,11 @@
                     Choose
                 </button>
             </div>
+            {% if user.avatar %}
+            <div class="mt-2">
+                <img src="{{ user.avatar.url }}" alt="Current avatar" style="max-width: 150px;">
+            </div>
+            {% endif %}
         </div>
 
         <!-- Save Button -->

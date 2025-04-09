@@ -10,13 +10,52 @@ from django.core.paginator import Paginator
 
 logger = logging.getLogger(__name__)
 
+data = {
+    'questions': [
+        {
+            'id': 1,
+            'title': 'Как создать веб-приложение на Django?',
+            'text': 'Я хочу узнать, как создать простое веб-приложение на Django. С чего начать?',
+            'author': {
+                'username': 'user123',
+                'avatar': 'path/to/avatar.jpg'
+            },
+            'tags': [
+                {'title': 'Python'},
+                {'title': 'Django'}
+            ],
+            'created_at': '2 часа назад'
+        }
+    ],
+    'answers': [
+        {
+            'author': {
+                'username': 'expert456',
+                'avatar': 'path/to/expert_avatar.jpg'
+            },
+            'text': 'Для начала установите Django с помощью pip.',
+            'created_at': '1 час назад'
+        },
+        {
+            'author': {
+                'username': 'dev789',
+                'avatar': 'path/to/dev_avatar.jpg'
+            },
+            'text': 'Помните, что вам нужно создать проект с помощью команды django-admin startproject.',
+            'created_at': '30 минут назад'
+        }
+    ]
+}
+
+
 
 
 def index(request):
     popular_tags = Tag.objects.popular_tags()
     best_members = User.objects.best_members()
+    questions = Question.objects.all().select_related('author').prefetch_related('tags')
     context = {
-        'questions': Question.objects.select_related('author').prefetch_related('tags')[:20],
+        'questions': questions,
         'popular_tags': popular_tags,
         'best_members': best_members,
     }
@@ -26,13 +65,14 @@ def question(request, question_id):
     popular_tags = Tag.objects.popular_tags()
     best_members = User.objects.best_members()
     question = get_object_or_404(Question, pk=question_id)
-    answers = Answer.objects.filter(question=question)  # Получаем все ответы для данного вопроса
+    answers = Answer.objects.filter(question=question)
     return render(request, 'main/question.html',
                   {
                       'question': question,
                       'answers': answers,
                       'popular_tags': popular_tags,
                       'best_members': best_members,
+                      'count_ans': len(answers)
                   })
 
 @login_required
@@ -176,3 +216,26 @@ def answer(request, question_id):
             answer.save()
             return redirect('question', question_id=question.id)
     return redirect('question', question_id=question.id)
+
+
+@login_required
+def settings(request):
+    popular_tags = Tag.objects.popular_tags()
+    best_members = User.objects.best_members()
+    user = request.user
+
+    if request.method == 'POST':
+        user.email = request.POST.get('email', user.email)
+        user.nickname = request.POST.get('nickname', user.nickname)
+
+        if 'avatar' in request.FILES:
+            user.avatar = request.FILES['avatar']
+
+        user.save()
+        return redirect('settings')
+
+    return render(request, 'main/settings.html', {
+        'popular_tags': popular_tags,
+        'best_members': best_members,
+        'user': user
+    })
