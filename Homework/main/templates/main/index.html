@@ -4,30 +4,45 @@
 {% block content %}
 <div class="col-md-9">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="mb-0">New Questions</h1>
-        <!--<a href="#" class="btn btn-outline-primary">Hot Questions</a>-->
+        <h1 class="mb-0">{{ title }}</h1>
+        {% if title == 'New Questions' %}
+            <a href="{% url 'hot_questions' %}" class="btn btn-outline-primary">
+                Hot Questions
+            </a>
+        {% else %}
+            <a href="{% url 'index' %}" class="btn btn-outline-primary">
+                New Questions
+            </a>
+        {% endif %}
     </div>
 
     {% for question in questions %}
     <div class="card mb-3">
         <div class="card-body">
             <div class="row">
-                <div class="col-auto pe-0">
+                <div class="col-auto pe-0 text-center">
                     {% if question.author.avatar %}
                         <img src="{{ question.author.avatar.url }}"
                              alt="avatar"
-                             class="rounded"
+                             class="rounded mb-2"
                              style="width: 64px; height: 64px; object-fit: cover">
                     {% else %}
                         <img src="{% static 'img/avatar.jpg' %}"
                              alt="default avatar"
-                             class="rounded"
+                             class="rounded mb-2"
                              style="width: 64px; height: 64px; object-fit: cover">
                     {% endif %}
-
-
+    
+                    <div class="d-flex justify-content-center gap-1">
+                        <button class="btn btn-outline-success btn-sm like-btn {% if user in question.likes.all %}active{% endif %}" data-id="{{ question.id }}">
+                            👍 <span class="like-count">{{ question.total_likes }}</span>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm dislike-btn {% if user in question.dislikes.all %}active{% endif %}" data-id="{{ question.id }}">
+                            👎 <span class="dislike-count">{{ question.total_dislikes }}</span>
+                        </button>
+                    </div>
                 </div>
-
+    
                 <div class="col">
                     <h5 class="card-title">
                         <a href="{% url 'question' question_id=question.id %}" class="text-decoration-none">
@@ -35,7 +50,6 @@
                         </a>
                     </h5>
                     <p class="card-text">{{ question.text }}</p>
-
                     <div class="d-flex justify-content-between align-items-end mt-3">
                         <div class="d-flex align-items-center">
                             <a href="{% url 'answer' question_id=question.id %}" class="text-success me-2">{{ count_ans }} answers</a>
@@ -54,16 +68,121 @@
             </div>
         </div>
     </div>
-    {% endfor %}
+{% endfor %}
 
-    <!--<nav aria-label="Page navigation" class="mt-4">
-        <ul class="pagination">
-            <li class="page-item"><a class="page-link" href="#">1</a></li>
-            <li class="page-item"><a class="page-link" href="#">2</a></li>
-            <li class="page-item"><a class="page-link" href="#">3</a></li>
-            <li class="page-item disabled"><span class="page-link">...</span></li>
-            <li class="page-item"><a class="page-link" href="#">53</a></li>
-        </ul>
-    </nav>-->
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if questions.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ questions.previous_page_number }}" aria-label="Previous">
+                    &laquo;
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">&laquo;</span>
+            </li>
+        {% endif %}
+
+        {% for num in questions.paginator.page_range %}
+            {% if num == questions.number %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+            {% elif num > questions.number|add:'-3' and num < questions.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if questions.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ questions.next_page_number }}" aria-label="Next">
+                    &raquo;
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">&raquo;</span>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+
+
+<style>
+    .like-btn.active {
+        background-color: #198754;
+        color: white;
+    }
+    
+    .dislike-btn.active {
+        background-color: #dc3545;
+        color: white;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.like-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const questionId = this.dataset.id;
+
+            fetch("{% url 'toggle_like' %}", {
+                method: "POST",
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `id=${questionId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.querySelector('.like-count').textContent = data.total_likes;
+                const dislikeBtn = document.querySelector(`.dislike-btn[data-id="${questionId}"]`);
+                dislikeBtn.querySelector('.dislike-count').textContent = data.total_dislikes;
+
+                if (data.liked) {
+                    this.classList.add('active');
+                    dislikeBtn.classList.remove('active');
+                } else {
+                    this.classList.remove('active');
+                }
+            });
+        });
+    });
+
+    document.querySelectorAll('.dislike-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const questionId = this.dataset.id;
+
+            fetch("{% url 'toggle_dislike' %}", {
+                method: "POST",
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `id=${questionId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.querySelector('.dislike-count').textContent = data.total_dislikes;
+                const likeBtn = document.querySelector(`.like-btn[data-id="${questionId}"]`);
+                likeBtn.querySelector('.like-count').textContent = data.total_likes;
+                
+                if (data.disliked) {
+                    this.classList.add('active');
+                    likeBtn.classList.remove('active');
+                } else {
+                    this.classList.remove('active');
+                }
+            });
+        });
+    });
+});
+</script>
+
+
 </div>
 {% endblock %}

@@ -6,17 +6,16 @@ from django.db.models import Count
 
 class TagManager(models.Manager):
     def popular_tags(self):
-        return self.annotate(
-            num_questions=Count('questions')
-        ).order_by('-num_questions')[:5]
+        # Кэширование популярных тегов
+        return self.annotate(num_questions=Count('questions'))\
+                   .order_by('-num_questions')[:10]
 
 
 class UserManager(BaseUserManager):
     def best_members(self):
-        return self.annotate(
-            num_questions=Count('questions'),
-            num_answers=Count('answers')
-        ).order_by('-num_questions', '-num_answers')[:5]
+        # Кэширование лучших пользователей
+        return self.annotate(num_answers=Count('answers')) \
+                   .order_by('-num_answers')[:10]
 
     def create_user(self, username, email, password=None, **extra_fields):
         if not email:
@@ -50,6 +49,12 @@ class User(AbstractUser):
     )
     objects = UserManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['username']),
+            models.Index(fields=['email']),
+        ]
+
     def __str__(self):
         return self.username
 
@@ -58,6 +63,11 @@ class Tag(models.Model):
     title = models.CharField(max_length=50, unique=True)
     objects = TagManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['title']),
+        ]
+
     def __str__(self):
         return self.title
 
@@ -65,20 +75,31 @@ class Tag(models.Model):
 class Question(models.Model):
     title = models.CharField(max_length=100)
     text = models.TextField()
-    author = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='questions'
-    )
-    tags = models.ManyToManyField(
-        Tag,
-        related_name='questions'
-    )
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='questions')
+    tags = models.ManyToManyField('Tag', related_name='questions')
     created_at = models.DateTimeField(auto_now_add=True)
 
+    likes = models.ManyToManyField(User, related_name='liked_questions', blank=True)
+    dislikes = models.ManyToManyField(User, related_name='disliked_questions', blank=True)
+
+    likes_count = models.PositiveIntegerField(default=0, db_index=True)
+    dislikes_count = models.PositiveIntegerField(default=0, db_index=True)
 
     def __str__(self):
         return self.title
+
+    def total_likes(self):
+        return self.likes.count()
+
+    def total_dislikes(self):
+        return self.dislikes.count()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['created_at']),
+            models.Index(fields=['likes_count']),
+            models.Index(fields=['dislikes_count']),
+        ]
 
 
 class Answer(models.Model):
@@ -95,3 +116,9 @@ class Answer(models.Model):
     )
     is_correct = models.BooleanField(default=False, verbose_name='Правильный ответ')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['created_at']),
+            models.Index(fields=['question']),
+        ]

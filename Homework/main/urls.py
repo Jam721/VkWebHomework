@@ -12,4 +12,7 @@ urlpatterns = [
     path('question/<int:question_id>/', views.question, name='question'),
     path('answer/<int:question_id>/', views.answer, name='answer'),
     path('logout/', views.logout_view, name='logout'),
+    path('like/', views.toggle_like, name='toggle_like'),
+    path('dislike/', views.toggle_dislike, name='toggle_dislike'),
+    path('hot/', views.hot_questions, name='hot_questions'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

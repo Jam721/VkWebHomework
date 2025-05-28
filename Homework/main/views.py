@@ -1,6 +1,14 @@
+from datetime import time
+
+from django.core.cache import cache
+from django.db import transaction, connection
+from django.db.models import Count, Max, F
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
+from django.utils.timezone import now
+from django.views.decorators.http import require_POST
 from .models import Question, Tag, User, Answer
 from .forms import AskForm, AnswerForm
 from .forms import LoginForm, SignUpForm
@@ -10,30 +18,149 @@ from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
+
 def index(request):
-    popular_tags = Tag.objects.popular_tags()
-    best_members = User.objects.best_members()
-    questions = Question.objects.all().select_related('author').prefetch_related('tags')
+    # Используем кэширование для популярных тегов и пользователей
+    popular_tags = cache.get_or_set(
+        'popular_tags',
+        Tag.objects.popular_tags,
+        300  # 5 минут кэширования
+    )
+    best_members = cache.get_or_set(
+        'best_members',
+        User.objects.best_members,
+        300
+    )
+    # Убираем аннотации, используем предварительно рассчитанные поля
+    questions = Question.objects.all() \
+        .only('id', 'title', 'created_at', 'author_id', 'likes_count') \
+        .select_related('author') \
+        .prefetch_related('tags') \
+        .order_by('-created_at')
+
+    paginator = Paginator(questions, 20)  # Увеличиваем размер страницы
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'questions': questions,
+        'questions': page_obj,
         'popular_tags': popular_tags,
         'best_members': best_members,
+        'title': 'New Questions'
     }
     return render(request, 'main/index.html', context)
 
-def question(request, question_id):
-    popular_tags = Tag.objects.popular_tags()
-    best_members = User.objects.best_members()
+
+def hot_questions(request):
+    # Используем предварительно рассчитанное поле likes_count
+    questions_list = Question.objects.all() \
+        .only('id', 'title', 'created_at', 'author_id', 'likes_count') \
+        .select_related('author') \
+        .prefetch_related('tags') \
+        .order_by('-likes_count', '-created_at')
+
+    paginator = Paginator(questions_list, 20)  # Увеличиваем размер страницы
+    page_number = request.GET.get('page')
+    questions = paginator.get_page(page_number)
+
+    popular_tags = cache.get_or_set('popular_tags', Tag.objects.popular_tags, 300)
+    best_members = cache.get_or_set('best_members', User.objects.best_members, 300)
+
+    return render(request, 'main/index.html', {
+        'questions': questions,
+        'popular_tags': popular_tags,
+        'best_members': best_members,
+        'title': 'Hot Questions',
+    })
+
+
+@login_required
+@require_POST
+@transaction.atomic  # Атомарная операция
+def toggle_like(request):
+    question_id = request.POST.get('id')
     question = get_object_or_404(Question, pk=question_id)
-    answers = Answer.objects.filter(question=question)
+    user = request.user
+
+    # Используем атомарное обновление счетчиков
+    if question.likes.filter(id=user.id).exists():
+        question.likes.remove(user)
+        question.likes_count = F('likes_count') - 1
+        liked = False
+    else:
+        question.likes.add(user)
+        question.likes_count = F('likes_count') + 1
+        # Убираем дизлайк если есть
+        if question.dislikes.filter(id=user.id).exists():
+            question.dislikes.remove(user)
+            question.dislikes_count = F('dislikes_count') - 1
+        liked = True
+
+    question.save(update_fields=['likes_count', 'dislikes_count'])
+    question.refresh_from_db()  # Обновляем объект
+
+    return JsonResponse({
+        'liked': liked,
+        'total_likes': question.likes_count,
+        'total_dislikes': question.dislikes_count
+    })
+
+
+@login_required
+@require_POST
+@transaction.atomic  # Атомарная операция
+def toggle_dislike(request):
+    question_id = request.POST.get('id')
+    question = get_object_or_404(Question, pk=question_id)
+    user = request.user
+
+    if question.dislikes.filter(id=user.id).exists():
+        question.dislikes.remove(user)
+        question.dislikes_count = F('dislikes_count') - 1
+        disliked = False
+    else:
+        question.dislikes.add(user)
+        question.dislikes_count = F('dislikes_count') + 1
+        # Убираем лайк если есть
+        if question.likes.filter(id=user.id).exists():
+            question.likes.remove(user)
+            question.likes_count = F('likes_count') - 1
+        disliked = True
+
+    question.save(update_fields=['likes_count', 'dislikes_count'])
+    question.refresh_from_db()  # Обновляем объект
+
+    return JsonResponse({
+        'disliked': disliked,
+        'total_likes': question.likes_count,
+        'total_dislikes': question.dislikes_count
+    })
+
+
+def question(request, question_id):
+    # Используем предварительно рассчитанные поля
+    me_question = get_object_or_404(
+        Question.objects.select_related('author').prefetch_related('tags'),
+        pk=question_id
+    )
+
+    # Оптимизируем запрос ответов
+    answers = Answer.objects.filter(question=me_question) \
+        .select_related('author') \
+        .only('id', 'text', 'author_id', 'question_id', 'created_at')
+
+    popular_tags = cache.get_or_set('popular_tags', Tag.objects.popular_tags, 300)
+    best_members = cache.get_or_set('best_members', User.objects.best_members, 300)
+
     context = {
-        'question': question,
+        'question': me_question,
         'answers': answers,
         'popular_tags': popular_tags,
         'best_members': best_members,
-        'count_ans': len(answers)
+        'count_ans': answers.count(),
     }
     return render(request, 'main/question.html', context)
+
 
 @login_required
 def ask(request):
@@ -133,7 +260,12 @@ def tag(request, tag_name):
     popular_tags = Tag.objects.popular_tags()
     best_members = User.objects.best_members()
     tag = get_object_or_404(Tag, title=tag_name)
-    questions = Question.objects.filter(tags=tag)
+
+    questions = Question.objects.filter(tags=tag)\
+        .only('id', 'title', 'created_at', 'author_id')\
+        .select_related('author')\
+        .prefetch_related('tags')\
+        .order_by('-created_at')
 
     paginator = Paginator(questions, 10)
     page_number = request.GET.get('page')
@@ -147,6 +279,7 @@ def tag(request, tag_name):
     }
 
     return render(request, 'main/tag.html', context)
+
 
 @login_required
 def answer(request, question_id):
