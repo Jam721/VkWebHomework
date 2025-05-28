@@ -36,12 +36,12 @@
     <!-- Answers Section -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0">{{ answers.count }} Answers</h5>
+            <h5 class="mb-0">{{ answers|length }} Answers</h5>
         </div>
 
         <div class="card-body">
             {% for answer in answers %}
-                <div class="d-flex mb-4">
+                <div class="d-flex mb-4" id="answer-{{ answer.id }}">
                     <div class="flex-shrink-0 me-3">
                         <img src="{% if answer.author.avatar %}{{ answer.author.avatar.url }}{% else %}{% static 'img/avatar.jpg' %}{% endif %}"
                              class="rounded"
@@ -52,16 +52,32 @@
                     <div class="flex-grow-1">
                         <div class="d-flex align-items-center mb-2">
                             <h6 class="me-2 mb-0">{{ answer.author.username }}</h6>
-                            {% if answer.is_correct %}
-                                <span class="badge bg-success">✓ Correct</span>
+                            
+                            <!-- Бейдж правильного ответа -->
+                            <div id="badge-{{ answer.id }}">
+                                {% if answer.is_correct %}
+                                    <span class="badge bg-success">✓ Correct</span>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Кнопка отметки (только для автора вопроса) -->
+                            {% if user == question.author %}
+                                <button class="btn btn-sm {% if answer.is_correct %}btn-outline-danger{% else %}btn-outline-success{% endif %} ms-2 mark-correct-btn"
+                                        data-answer-id="{{ answer.id }}"
+                                        data-question-id="{{ question.id }}">
+                                    {% if answer.is_correct %}Unmark{% else %}Mark as correct{% endif %}
+                                </button>
                             {% endif %}
                         </div>
                         <p class="mb-0">{{ answer.text }}</p>
                         <small class="text-muted">{{ answer.created_at|timesince }} ago</small>
                     </div>
                 </div>
+            {% empty %}
+                <div class="alert alert-info">
+                    No answers yet. Be the first to answer!
+                </div>
             {% endfor %}
-
         </div>
     </div>
 
@@ -89,4 +105,107 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Функция для отметки правильного ответа
+    document.querySelectorAll('.mark-correct-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const answerId = this.dataset.answerId;
+            const questionId = this.dataset.questionId;
+            const csrfToken = '{{ csrf_token }}';
+            const button = this;
+            
+            // Показываем индикатор загрузки
+            const originalText = button.textContent;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+            button.disabled = true;
+            
+            fetch("{% url 'mark_correct' %}", {
+                method: "POST",
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question_id: questionId,
+                    answer_id: answerId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Обновляем бейдж для текущего ответа
+                    const badgeContainer = document.getElementById(`badge-${answerId}`);
+                    
+                    if (data.is_correct) {
+                        badgeContainer.innerHTML = '<span class="badge bg-success">✓ Correct</span>';
+                        button.textContent = 'Unmark';
+                        button.classList.remove('btn-outline-success');
+                        button.classList.add('btn-outline-danger');
+                    } else {
+                        badgeContainer.innerHTML = '';
+                        button.textContent = 'Mark as correct';
+                        button.classList.remove('btn-outline-danger');
+                        button.classList.add('btn-outline-success');
+                    }
+                    
+                    // Если ответ был помечен как правильный, обновляем другие ответы
+                    if (data.is_correct) {
+                        document.querySelectorAll('.mark-correct-btn').forEach(otherBtn => {
+                            if (otherBtn.dataset.answerId !== answerId) {
+                                const otherId = otherBtn.dataset.answerId;
+                                const otherBadge = document.getElementById(`badge-${otherId}`);
+                                if (otherBadge) {
+                                    otherBadge.innerHTML = '';
+                                }
+                                otherBtn.textContent = 'Mark as correct';
+                                otherBtn.classList.remove('btn-outline-danger');
+                                otherBtn.classList.add('btn-outline-success');
+                            }
+                        });
+                    }
+                } else {
+                    alert(data.error || 'Error marking answer as correct');
+                    button.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred: ' + error.message);
+                button.innerHTML = originalText;
+            })
+            .finally(() => {
+                button.disabled = false;
+            });
+        });
+    });
+});
+</script>
+    <style>
+    .btn-outline-success {
+        color: #28a745;
+        border-color: #28a745;
+    }
+    
+    .btn-outline-success:hover {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .btn-outline-danger {
+        color: #dc3545;
+        border-color: #dc3545;
+    }
+    
+    .btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+</style>
 {% endblock %}

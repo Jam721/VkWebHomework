@@ -15,4 +15,5 @@ urlpatterns = [
     path('like/', views.toggle_like, name='toggle_like'),
     path('dislike/', views.toggle_dislike, name='toggle_dislike'),
     path('hot/', views.hot_questions, name='hot_questions'),
+    path('mark-correct/', views.mark_as_correct, name='mark_correct'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

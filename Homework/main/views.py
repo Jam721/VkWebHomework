@@ -1,3 +1,4 @@
+import json
 from datetime import time
 
 from django.core.cache import cache
@@ -20,25 +21,23 @@ logger = logging.getLogger(__name__)
 
 
 def index(request):
-    # Используем кэширование для популярных тегов и пользователей
     popular_tags = cache.get_or_set(
         'popular_tags',
         Tag.objects.popular_tags,
-        300  # 5 минут кэширования
+        300
     )
     best_members = cache.get_or_set(
         'best_members',
         User.objects.best_members,
         300
     )
-    # Убираем аннотации, используем предварительно рассчитанные поля
     questions = Question.objects.all() \
         .only('id', 'title', 'created_at', 'author_id', 'likes_count') \
         .select_related('author') \
         .prefetch_related('tags') \
         .order_by('-created_at')
 
-    paginator = Paginator(questions, 20)  # Увеличиваем размер страницы
+    paginator = Paginator(questions, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -52,14 +51,13 @@ def index(request):
 
 
 def hot_questions(request):
-    # Используем предварительно рассчитанное поле likes_count
     questions_list = Question.objects.all() \
         .only('id', 'title', 'created_at', 'author_id', 'likes_count') \
         .select_related('author') \
         .prefetch_related('tags') \
         .order_by('-likes_count', '-created_at')
 
-    paginator = Paginator(questions_list, 20)  # Увеличиваем размер страницы
+    paginator = Paginator(questions_list, 20)
     page_number = request.GET.get('page')
     questions = paginator.get_page(page_number)
 
@@ -76,13 +74,12 @@ def hot_questions(request):
 
 @login_required
 @require_POST
-@transaction.atomic  # Атомарная операция
+@transaction.atomic
 def toggle_like(request):
     question_id = request.POST.get('id')
     question = get_object_or_404(Question, pk=question_id)
     user = request.user
 
-    # Используем атомарное обновление счетчиков
     if question.likes.filter(id=user.id).exists():
         question.likes.remove(user)
         question.likes_count = F('likes_count') - 1
@@ -90,14 +87,13 @@ def toggle_like(request):
     else:
         question.likes.add(user)
         question.likes_count = F('likes_count') + 1
-        # Убираем дизлайк если есть
         if question.dislikes.filter(id=user.id).exists():
             question.dislikes.remove(user)
             question.dislikes_count = F('dislikes_count') - 1
         liked = True
 
     question.save(update_fields=['likes_count', 'dislikes_count'])
-    question.refresh_from_db()  # Обновляем объект
+    question.refresh_from_db()
 
     return JsonResponse({
         'liked': liked,
@@ -108,7 +104,7 @@ def toggle_like(request):
 
 @login_required
 @require_POST
-@transaction.atomic  # Атомарная операция
+@transaction.atomic
 def toggle_dislike(request):
     question_id = request.POST.get('id')
     question = get_object_or_404(Question, pk=question_id)
@@ -121,14 +117,13 @@ def toggle_dislike(request):
     else:
         question.dislikes.add(user)
         question.dislikes_count = F('dislikes_count') + 1
-        # Убираем лайк если есть
         if question.likes.filter(id=user.id).exists():
             question.likes.remove(user)
             question.likes_count = F('likes_count') - 1
         disliked = True
 
     question.save(update_fields=['likes_count', 'dislikes_count'])
-    question.refresh_from_db()  # Обновляем объект
+    question.refresh_from_db()
 
     return JsonResponse({
         'disliked': disliked,
@@ -137,29 +132,72 @@ def toggle_dislike(request):
     })
 
 
+@login_required
+@require_POST
+def mark_as_correct(request):
+    try:
+        data = json.loads(request.body)
+        question_id = data.get('question_id')
+        answer_id = data.get('answer_id')
+
+        question = get_object_or_404(Question, pk=question_id)
+        answer = get_object_or_404(Answer, pk=answer_id, question=question)
+
+        if request.user != question.author:
+            return JsonResponse({
+                'error': 'Only the author can mark correct answers'
+            }, status=403)
+
+        if answer.is_correct:
+            answer.is_correct = False
+            answer.save()
+            return JsonResponse({
+                'success': True,
+                'is_correct': False,
+                'answer_id': answer_id
+            })
+
+        Answer.objects.filter(question=question, is_correct=True).update(is_correct=False)
+
+        answer.is_correct = True
+        answer.save()
+
+        return JsonResponse({
+            'success': True,
+            'is_correct': True,
+            'answer_id': answer_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error in mark_as_correct: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=400)
+
 def question(request, question_id):
-    # Используем предварительно рассчитанные поля
-    me_question = get_object_or_404(
-        Question.objects.select_related('author').prefetch_related('tags'),
-        pk=question_id
-    )
+    try:
+        popular_tags = Tag.objects.popular_tags()
+        best_members = User.objects.best_members()
 
-    # Оптимизируем запрос ответов
-    answers = Answer.objects.filter(question=me_question) \
-        .select_related('author') \
-        .only('id', 'text', 'author_id', 'question_id', 'created_at')
+        me_question = get_object_or_404(
+            Question.objects.select_related('author')
+            .prefetch_related('tags'),
+            pk=question_id
+        )
 
-    popular_tags = cache.get_or_set('popular_tags', Tag.objects.popular_tags, 300)
-    best_members = cache.get_or_set('best_members', User.objects.best_members, 300)
+        answers = Answer.objects.filter(question=me_question) \
+            .select_related('author') \
+            .order_by('-is_correct', 'created_at')
 
-    context = {
-        'question': me_question,
-        'answers': answers,
-        'popular_tags': popular_tags,
-        'best_members': best_members,
-        'count_ans': answers.count(),
-    }
-    return render(request, 'main/question.html', context)
+        context = {
+            'question': me_question,
+            'answers': answers,
+            'popular_tags': popular_tags,
+            'best_members': best_members,
+        }
+        return render(request, 'main/question.html', context)
+
+    except Exception as e:
+        logger.error(f"Error in question view: {str(e)}")
+        return render(request, 'main/error.html', {'error': str(e)})
 
 
 @login_required

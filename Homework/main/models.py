@@ -6,14 +6,12 @@ from django.db.models import Count
 
 class TagManager(models.Manager):
     def popular_tags(self):
-        # Кэширование популярных тегов
         return self.annotate(num_questions=Count('questions'))\
                    .order_by('-num_questions')[:10]
 
 
 class UserManager(BaseUserManager):
     def best_members(self):
-        # Кэширование лучших пользователей
         return self.annotate(num_answers=Count('answers')) \
                    .order_by('-num_answers')[:10]
 
