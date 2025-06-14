@@ -1,14 +1,12 @@
 import json
-from datetime import time
 
 from django.core.cache import cache
-from django.db import transaction, connection
-from django.db.models import Count, Max, F
+from django.db import transaction
+from django.db.models import F
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from django.utils.timezone import now
 from django.views.decorators.http import require_POST
 from .models import Question, Tag, User, Answer
 from .forms import AskForm, AnswerForm
@@ -197,32 +195,18 @@ def question(request, question_id):
 
     except Exception as e:
         logger.error(f"Error in question view: {str(e)}")
-        return render(request, 'main/error.html', {'error': str(e)})
 
 
 @login_required
 def ask(request):
     popular_tags = Tag.objects.popular_tags()
     best_members = User.objects.best_members()
+
     if request.method == 'POST':
         form = AskForm(request.POST)
         if form.is_valid():
-            question = form.save(commit=False)
-            question.author = request.user
-            question.save()
-
-            tags = form.cleaned_data['tags']
-
-            if isinstance(tags, str):
-                tags = [t.strip() for t in tags.split(',') if t.strip()]
-            else:
-                tags = [t.strip() for t in tags]
-
-            for tag_name in tags:
-                tag, _ = Tag.objects.get_or_create(title=tag_name)
-                question.tags.add(tag)
-
-            return redirect('index')
+            question = form.save(user=request.user)
+            return redirect('question', question_id=question.id)
     else:
         form = AskForm()
 
@@ -231,7 +215,6 @@ def ask(request):
         'popular_tags': popular_tags,
         'best_members': best_members,
     }
-
     return render(request, 'main/ask.html', context)
 
 def login_view(request):
@@ -321,17 +304,13 @@ def tag(request, tag_name):
 
 @login_required
 def answer(request, question_id):
-    popular_tags = Tag.objects.popular_tags()
-    best_members = User.objects.best_members()
     question = get_object_or_404(Question, pk=question_id)
+
     if request.method == 'POST':
         form = AnswerForm(request.POST)
         if form.is_valid():
-            answer = form.save(commit=False)
-            answer.author = request.user
-            answer.question = question
-            answer.save()
-            return redirect('question', question_id=question.id)
+            form.save(user=request.user, question=question)
+
     return redirect('question', question_id=question.id)
 
 

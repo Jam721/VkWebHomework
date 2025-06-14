@@ -26,25 +26,42 @@ class LoginForm(forms.Form):
 
 
 class AskForm(forms.ModelForm):
-    tags = forms.CharField(
-        label='Теги',
-        help_text='Разделяйте теги запятыми',
-        required=False
-    )
+    tags = forms.CharField(required=False, help_text='Введите теги через запятую')
 
     class Meta:
         model = Question
         fields = ['title', 'text']
 
-    def clean_tags(self):
+    def save(self, user, commit=True):
+        question = super().save(commit=False)
+        question.author = user
+
+        if commit:
+            question.save()
+            self.process_tags(question)
+
+        return question
+
+    def process_tags(self, question):
         tags = self.cleaned_data.get('tags', '')
-        return [t.strip() for t in tags.split(',') if t.strip()]
+        if tags:
+            tags_list = [t.strip() for t in tags.split(',') if t.strip()]
+            for tag_name in tags_list:
+                tag, _ = Tag.objects.get_or_create(title=tag_name)
+                question.tags.add(tag)
 
 
 class AnswerForm(forms.ModelForm):
     class Meta:
         model = Answer
         fields = ['text']
-        widgets = {
-            'text': forms.Textarea(attrs={'rows': 5})
-        }
+
+    def save(self, user, question, commit=True):
+        answer = super().save(commit=False)
+        answer.author = user
+        answer.question = question
+
+        if commit:
+            answer.save()
+
+        return answer
